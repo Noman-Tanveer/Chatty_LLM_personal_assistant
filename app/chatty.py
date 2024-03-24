@@ -26,6 +26,11 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter, SentenceTra
 import chromadb
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
+from langchain.prompts.chat import (
+    ChatPromptTemplate,
+    HumanMessagePromptTemplate,
+    SystemMessagePromptTemplate,
+)
 # from utils import word_wrap
 
 load_dotenv()
@@ -55,21 +60,31 @@ vectorstore = Chroma.from_documents(documents=docs,
                                     )
 retriever = vectorstore.as_retriever()
 
+system_template = """Use the following pieces of context to answer the user's question.
+Help the user achieve his goal to become more disciplined and get more work done.
+----------------
+{context}"""
 # RAG prompt
 template = """Answer the question based on the following context:
 {context}. Add exposition and examples if required.
 
 Question: {question}
 """
+
 prompt = ChatPromptTemplate.from_template(template)
 
+messages = [
+    SystemMessagePromptTemplate.from_template(system_template),
+    HumanMessagePromptTemplate.from_template("{question}"),
+]
+CHAT_PROMPT = ChatPromptTemplate.from_messages(messages)
 # LLM
 model = ChatOpenAI()
 
 # RAG chain
 chain = (
     RunnableParallel({"context": retriever, "question": RunnablePassthrough()})
-    | prompt
+    | CHAT_PROMPT
     | model
     | StrOutputParser()
 )
